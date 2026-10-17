@@ -1,0 +1,483 @@
+-- Services
+local CoreGui = game:GetService("CoreGui")
+local HttpService = game:GetService("HttpService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+
+---------------------------------------------------------
+-- ⚙️ GitHub 설정 (본인 계정 정보)
+---------------------------------------------------------
+local GITHUB_USER = "vex09924-maker"
+local GITHUB_REPO = "juun"
+local GITHUB_BRANCH = "main"
+
+-- GitHub API 및 Raw 주소 설정
+local API_URL = string.format("https://api.github.com/repos/%s/%s/contents/sheets", GITHUB_USER, GITHUB_REPO)
+local RAW_BASE_URL = string.format("https://raw.githubusercontent.com/%s/%s/%s/sheets/", GITHUB_USER, GITHUB_REPO, GITHUB_BRANCH)
+
+-- 기존 GUI 제거 (중복 실행 방지)
+if CoreGui:FindFirstChild("RobloxAutoPianoGUI") then
+    CoreGui.RobloxAutoPianoGUI:Destroy()
+end
+
+-- ScreenGui 생성
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "RobloxAutoPianoGUI"
+screenGui.Parent = CoreGui
+
+-- 메인 프레임
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 360, 0, 450)
+mainFrame.Position = UDim2.new(0.5, -180, 0.3, -225)
+mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.Parent = screenGui
+
+local mainCorner = Instance.new("UICorner")
+mainCorner.CornerRadius = UDim.new(0, 10)
+mainCorner.Parent = mainFrame
+
+-- 타이틀바
+local titleBar = Instance.new("TextLabel")
+titleBar.Size = UDim2.new(1, 0, 0, 40)
+titleBar.BackgroundColor3 = Color3.fromRGB(45, 45, 60)
+titleBar.Text = "🎹 Auto Piano Player (Realtime Speed)"
+titleBar.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleBar.TextSize = 14
+titleBar.Font = Enum.Font.GothamBold
+titleBar.Parent = mainFrame
+
+local titleCorner = Instance.new("UICorner")
+titleCorner.CornerRadius = UDim.new(0, 10)
+titleCorner.Parent = titleBar
+
+-- 닫기 버튼
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0, 30, 0, 30)
+closeBtn.Position = UDim2.new(1, -35, 0, 5)
+closeBtn.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
+closeBtn.Text = "X"
+closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeBtn.TextSize = 14
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.Parent = titleBar
+
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(0, 6)
+closeCorner.Parent = closeBtn
+
+closeBtn.MouseButton1Click:Connect(function()
+    screenGui:Destroy()
+end)
+
+-- 악보 입력 텍스트 상자
+local sheetInput = Instance.new("TextBox")
+sheetInput.Size = UDim2.new(1, -20, 0, 80)
+sheetInput.Position = UDim2.new(0, 10, 0, 50)
+sheetInput.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
+sheetInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+sheetInput.PlaceholderText = "GitHub에서 악보를 선택하거나 직접 입력하세요..."
+sheetInput.PlaceholderColor3 = Color3.fromRGB(120, 120, 140)
+sheetInput.TextSize = 13
+sheetInput.Font = Enum.Font.Code
+sheetInput.TextWrapped = true
+sheetInput.MultiLine = true
+sheetInput.TextYAlignment = Enum.TextYAlignment.Top
+sheetInput.Parent = mainFrame
+
+local inputCorner = Instance.new("UICorner")
+inputCorner.CornerRadius = UDim.new(0, 6)
+inputCorner.Parent = sheetInput
+
+-- GitHub 목록 타이틀
+local githubTitle = Instance.new("TextLabel")
+githubTitle.Size = UDim2.new(1, -20, 0, 20)
+githubTitle.Position = UDim2.new(0, 10, 0, 138)
+githubTitle.BackgroundTransparency = 1
+githubTitle.Text = "🌐 GitHub 저장소 악보 목록"
+githubTitle.TextColor3 = Color3.fromRGB(180, 180, 200)
+githubTitle.TextSize = 12
+githubTitle.Font = Enum.Font.GothamBold
+githubTitle.TextXAlignment = Enum.TextXAlignment.Left
+githubTitle.Parent = mainFrame
+
+-- GitHub 악보 목록 스크롤 프레임
+local listFrame = Instance.new("ScrollingFrame")
+listFrame.Size = UDim2.new(1, -20, 0, 100)
+listFrame.Position = UDim2.new(0, 10, 0, 160)
+listFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
+listFrame.BorderSizePixel = 0
+listFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+listFrame.Parent = mainFrame
+
+local listCorner = Instance.new("UICorner")
+listCorner.CornerRadius = UDim.new(0, 6)
+listCorner.Parent = listFrame
+
+local listLayout = Instance.new("UIListLayout")
+listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+listLayout.Padding = UDim.new(0, 4)
+listLayout.Parent = listFrame
+
+-- 새로고침 버튼
+local refreshBtn = Instance.new("TextButton")
+refreshBtn.Size = UDim2.new(1, -20, 0, 25)
+refreshBtn.Position = UDim2.new(0, 10, 0, 265)
+refreshBtn.BackgroundColor3 = Color3.fromRGB(60, 120, 180)
+refreshBtn.Text = "🔄 GitHub 목록 새로고침"
+refreshBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+refreshBtn.TextSize = 11
+refreshBtn.Font = Enum.Font.GothamBold
+refreshBtn.Parent = mainFrame
+
+local refCorner = Instance.new("UICorner")
+refCorner.CornerRadius = UDim.new(0, 6)
+refCorner.Parent = refreshBtn
+
+-- 속도 조절 & 휴머니라이즈
+local speedLabel = Instance.new("TextLabel")
+speedLabel.Size = UDim2.new(0, 90, 0, 30)
+speedLabel.Position = UDim2.new(0, 10, 0, 298)
+speedLabel.BackgroundTransparency = 1
+speedLabel.Text = "연주 속도(초):"
+speedLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+speedLabel.TextSize = 13
+speedLabel.Font = Enum.Font.Gotham
+speedLabel.Parent = mainFrame
+
+local speedInput = Instance.new("TextBox")
+speedInput.Size = UDim2.new(0, 50, 0, 30)
+speedInput.Position = UDim2.new(0, 100, 0, 298)
+speedInput.BackgroundColor3 = Color3.fromRGB(45, 45, 60)
+speedInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+speedInput.Text = "0.15" -- 기본 속도 0.15 설정
+speedInput.TextSize = 14
+speedInput.Font = Enum.Font.GothamBold
+speedInput.Parent = mainFrame
+
+local speedCorner = Instance.new("UICorner")
+speedCorner.CornerRadius = UDim.new(0, 6)
+speedCorner.Parent = speedInput
+
+local humanBtn = Instance.new("TextButton")
+humanBtn.Size = UDim2.new(0, 185, 0, 30)
+humanBtn.Position = UDim2.new(0, 165, 0, 298)
+humanBtn.BackgroundColor3 = Color3.fromRGB(180, 100, 40)
+humanBtn.Text = "휴머니라이즈: 꺼짐 (OFF)"
+humanBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+humanBtn.TextSize = 11
+humanBtn.Font = Enum.Font.GothamBold
+humanBtn.Parent = mainFrame
+
+local humanCorner = Instance.new("UICorner")
+humanCorner.CornerRadius = UDim.new(0, 6)
+humanCorner.Parent = humanBtn
+
+-- 상태 표시 창
+local statusLabel = Instance.new("TextLabel")
+statusLabel.Size = UDim2.new(1, -20, 0, 30)
+statusLabel.Position = UDim2.new(0, 10, 0, 335)
+statusLabel.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
+statusLabel.Text = "상태: GitHub 불러오는 중..."
+statusLabel.TextColor3 = Color3.fromRGB(100, 255, 150)
+statusLabel.TextSize = 12
+statusLabel.Font = Enum.Font.GothamMedium
+statusLabel.Parent = mainFrame
+
+local statusCorner = Instance.new("UICorner")
+statusCorner.CornerRadius = UDim.new(0, 6)
+statusCorner.Parent = statusLabel
+
+-- 재생 / 정지 버튼
+local playBtn = Instance.new("TextButton")
+playBtn.Size = UDim2.new(0.46, 0, 0, 35)
+playBtn.Position = UDim2.new(0, 10, 0, 375)
+playBtn.BackgroundColor3 = Color3.fromRGB(46, 180, 90)
+playBtn.Text = "▶ 자동 연주 시작"
+playBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+playBtn.TextSize = 13
+playBtn.Font = Enum.Font.GothamBold
+playBtn.Parent = mainFrame
+
+local playCorner = Instance.new("UICorner")
+playCorner.CornerRadius = UDim.new(0, 6)
+playCorner.Parent = playBtn
+
+local stopBtn = Instance.new("TextButton")
+stopBtn.Size = UDim2.new(0.46, 0, 0, 35)
+stopBtn.Position = UDim2.new(0.52, 0, 0, 375)
+stopBtn.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
+stopBtn.Text = "■ 연주 중지"
+stopBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+stopBtn.TextSize = 14
+stopBtn.Font = Enum.Font.GothamBold
+stopBtn.Parent = mainFrame
+
+local stopCorner = Instance.new("UICorner")
+stopCorner.CornerRadius = UDim.new(0, 6)
+stopCorner.Parent = stopBtn
+
+---------------------------------------------------------
+-- GitHub 연동 로직
+---------------------------------------------------------
+local function loadGithubSheets()
+    statusLabel.Text = "상태: GitHub 목록 불러오는 중..."
+    
+    for _, child in ipairs(listFrame:GetChildren()) do
+        if child:IsA("TextButton") then
+            child:Destroy()
+        end
+    end
+
+    task.spawn(function()
+        local success, response = pcall(function()
+            return game:HttpGet(API_URL)
+        end)
+
+        if success then
+            local successJson, data = pcall(function()
+                return HttpService:JSONDecode(response)
+            end)
+
+            if successJson and type(data) == "table" then
+                local count = 0
+                for _, item in ipairs(data) do
+                    if item.type == "file" and item.name:sub(-4):lower() == ".txt" then
+                        count = count + 1
+                        local fileBtn = Instance.new("TextButton")
+                        fileBtn.Size = UDim2.new(1, -10, 0, 26)
+                        fileBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+                        fileBtn.Text = "🎵 " .. item.name:sub(1, -5)
+                        fileBtn.TextColor3 = Color3.fromRGB(220, 220, 240)
+                        fileBtn.TextSize = 12
+                        fileBtn.Font = Enum.Font.Gotham
+                        fileBtn.TextXAlignment = Enum.TextXAlignment.Left
+                        fileBtn.Parent = listFrame
+                        
+                        local fCorner = Instance.new("UICorner")
+                        fCorner.CornerRadius = UDim.new(0, 4)
+                        fCorner.Parent = fileBtn
+                        
+                        fileBtn.MouseButton1Click:Connect(function()
+                            statusLabel.Text = "상태: '" .. item.name .. "' 다운로드 중..."
+                            local getSheetSuccess, sheetText = pcall(function()
+                                return game:HttpGet(RAW_BASE_URL .. item.name, true)
+                            end)
+                            
+                            if getSheetSuccess then
+                                if sheetInput.Text ~= "" then
+                                    sheetInput.Text = sheetInput.Text .. "\n\n" .. sheetText
+                                else
+                                    sheetInput.Text = sheetText
+                                end
+                                statusLabel.Text = "상태: '" .. item.name .. "' 추가 완료!"
+                            else
+                                statusLabel.Text = "상태: 악보 다운로드 실패!"
+                            end
+                        end)
+                    end
+                end
+                
+                listFrame.CanvasSize = UDim2.new(0, 0, 0, count * 30)
+                statusLabel.Text = "상태: 총 " .. count .. "개 악보 준비됨"
+            else
+                statusLabel.Text = "상태: GitHub 데이터를 해석할 수 없음"
+            end
+        else
+            statusLabel.Text = "상태: GitHub 연결 실패"
+        end
+    end)
+end
+
+refreshBtn.MouseButton1Click:Connect(function()
+    loadGithubSheets()
+end)
+
+---------------------------------------------------------
+-- 연주 로직 (실시간 속도 반영)
+---------------------------------------------------------
+local isPlaying = false
+local isHumanized = false
+
+humanBtn.MouseButton1Click:Connect(function()
+    isHumanized = not isHumanized
+    if isHumanized then
+        humanBtn.Text = "휴머니라이즈: 켜짐 (ON)"
+        humanBtn.BackgroundColor3 = Color3.fromRGB(60, 160, 100)
+    else
+        humanBtn.Text = "휴머니라이즈: 꺼짐 (OFF)"
+        humanBtn.BackgroundColor3 = Color3.fromRGB(180, 100, 40)
+    end
+end)
+
+local shiftSymbols = {
+    ["!"] = "One", ["@"] = "Two", ["#"] = "Three", ["$"] = "Four", ["%"] = "Five",
+    ["^"] = "Six", ["&"] = "Seven", ["*"] = "Eight", ["("] = "Nine", [")"] = "Zero"
+}
+
+local numberKeys = {
+    ["1"] = "One", ["2"] = "Two", ["3"] = "Three", ["4"] = "Four", ["5"] = "Five",
+    ["6"] = "Six", ["7"] = "Seven", ["8"] = "Eight", ["9"] = "Nine", ["0"] = "Zero"
+}
+
+local nearbyKeys = {
+    q = {"w", "a"}, w = {"q", "e"}, e = {"w", "r"}, r = {"e", "t"}, t = {"r", "y"}, y = {"t", "u"}, u = {"y", "i"},
+    a = {"q", "s"}, s = {"a", "d"}, d = {"s", "f"}, f = {"d", "g"}, g = {"f", "h"},
+    z = {"x"}, x = {"z", "c"}, c = {"x", "v"}, v = {"c", "b"}
+}
+
+local function getKeyCode(char)
+    if numberKeys[char] then
+        return Enum.KeyCode[numberKeys[char]], false
+    elseif shiftSymbols[char] then
+        return Enum.KeyCode[shiftSymbols[char]], true
+    elseif char:match("%a") then
+        local isUpper = (char:upper() == char)
+        return Enum.KeyCode[char:upper()], isUpper
+    end
+    return nil, false
+end
+
+local function pressKey(char)
+    if isHumanized and math.random() < 0.08 then
+        local lower = char:lower()
+        if nearbyKeys[lower] and #nearbyKeys[lower] > 0 then
+            char = nearbyKeys[lower][math.random(1, #nearbyKeys[lower])]
+        end
+    end
+
+    local keyCode, needShift = getKeyCode(char)
+    if keyCode then
+        if needShift then
+            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.LeftShift, false, game)
+            task.wait(0.01)
+        end
+        
+        VirtualInputManager:SendKeyEvent(true, keyCode, false, game)
+        task.wait(0.03)
+        VirtualInputManager:SendKeyEvent(false, keyCode, false, game)
+        
+        if needShift then
+            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.LeftShift, false, game)
+        end
+    end
+end
+
+local function pressChord(chordString)
+    local keysToPress = {}
+    local hasShift = false
+    
+    for c in chordString:gmatch(".") do
+        local keyCode, needShift = getKeyCode(c)
+        if keyCode then
+            table.insert(keysToPress, keyCode)
+            if needShift then hasShift = true end
+        end
+    end
+    
+    if #keysToPress > 0 then
+        if hasShift then
+            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.LeftShift, false, game)
+            task.wait(0.01)
+        end
+        
+        for _, kc in ipairs(keysToPress) do
+            VirtualInputManager:SendKeyEvent(true, kc, false, game)
+        end
+        
+        task.wait(0.04)
+        
+        for _, kc in ipairs(keysToPress) do
+            VirtualInputManager:SendKeyEvent(false, kc, false, game)
+        end
+        
+        if hasShift then
+            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.LeftShift, false, game)
+        end
+    end
+end
+
+local function playSheet(sheetText)
+    isPlaying = true
+    statusLabel.Text = "상태: 연주 중..."
+    
+    local i = 1
+    local len = #sheetText
+    
+    while i <= len and isPlaying do
+        local char = sheetText:sub(i, i)
+        
+        -- 연주 도중에도 실시간으로 입력창의 속도 값을 읽어옴
+        local currentSpeed = tonumber(speedInput.Text) or 0.15
+        local currentWait = currentSpeed
+        
+        if isHumanized then
+            local jitter = (math.random() - 0.5) * (currentSpeed * 0.6)
+            currentWait = math.clamp(currentSpeed + jitter, 0.03, 1.0)
+        end
+        
+        if char == "[" then
+            local closeIdx = sheetText:find("]", i)
+            if closeIdx then
+                local chord = sheetText:sub(i + 1, closeIdx - 1)
+                pressChord(chord)
+                i = closeIdx
+                task.wait(currentWait)
+            end
+        elseif char == "{" then
+            local closeIdx = sheetText:find("}", i)
+            if closeIdx then
+                local fastSeq = sheetText:sub(i + 1, closeIdx - 1)
+                for c in fastSeq:gmatch(".") do
+                    if getKeyCode(c) then
+                        pressKey(c)
+                        task.wait(currentWait * 0.35)
+                    end
+                end
+                i = closeIdx
+                task.wait(currentWait)
+            end
+        elseif char == "-" then
+            if sheetText:sub(i + 1, i + 1) == "-" then
+                i = i + 1
+                task.wait(currentWait * 3.0)
+            else
+                task.wait(currentWait * 1.5)
+            end
+        elseif char == " " then
+            task.wait(currentWait * 1.2)
+        elseif getKeyCode(char) then
+            pressKey(char)
+            task.wait(currentWait)
+        end
+        
+        i = i + 1
+    end
+    
+    isPlaying = false
+    statusLabel.Text = "상태: 연주 완료"
+end
+
+playBtn.MouseButton1Click:Connect(function()
+    if isPlaying then return end
+    
+    local text = sheetInput.Text
+    
+    if text == "" then
+        statusLabel.Text = "상태: 악보를 선택하거나 입력하세요!"
+        return
+    end
+    
+    task.spawn(function()
+        playSheet(text)
+    end)
+end)
+
+stopBtn.MouseButton1Click:Connect(function()
+    isPlaying = false
+    statusLabel.Text = "상태: 연주 중지됨"
+end)
+
+-- 실행 시 GitHub 목록 가져오기
+loadGithubSheets()
