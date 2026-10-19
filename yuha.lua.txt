@@ -2,33 +2,236 @@
 local CoreGui = game:GetService("CoreGui")
 local HttpService = game:GetService("HttpService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
+local TweenService = game:GetService("TweenService")
 
 ---------------------------------------------------------
--- ⚙️ GitHub 설정 (본인 계정 정보)
+-- 🔔 Notification Library (IceMinister#9889 모듈 통합)
+---------------------------------------------------------
+local NotificationLibrary = {}
+local LibraryName = "Notification Library"
+
+function NotificationLibrary:Load()
+    local success, obj = pcall(function()
+        return game:GetObjects("rbxassetid://15133757123")[1]
+    end)
+    if success and obj then
+        obj.Name = LibraryName
+        obj.Parent = CoreGui
+        return obj
+    end
+    return nil
+end
+
+function NotificationLibrary:SendNotification(Mode, Text, Duration)
+    if _G.talentlessSettings and _G.talentlessSettings["disablenotifs"] == true then
+        return
+    end
+    
+    local libraryCore = CoreGui:FindFirstChild(LibraryName)
+    if not libraryCore then
+        libraryCore = NotificationLibrary:Load()
+    end
+    
+    if libraryCore then
+        local templateFolder = libraryCore:FindFirstChild("Templates")
+        local canvas = libraryCore:FindFirstChild("list")
+        
+        if templateFolder and canvas and templateFolder:FindFirstChild(Mode) then
+            task.spawn(function()
+                local success, err = pcall(function()
+                    local Notification = templateFolder:WaitForChild(Mode):Clone()
+                    local filler = Notification:WaitForChild("Filler")
+                    local bar = Notification:WaitForChild("bar")
+                    Notification.Header.Text = Text
+                    
+                    Notification.Visible = true
+                    Notification.Parent = canvas
+        
+                    Notification.Size = UDim2.new(0, 0, 0.087, 0)
+                    filler.Size = UDim2.new(1, 0, 1, 0)
+            
+                    local T1 = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+                    local T2 = TweenInfo.new(Duration or 3, Enum.EasingStyle.Linear, Enum.EasingDirection.Out)
+                    local T3 = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+                
+                    TweenService:Create(Notification, T1, {Size = UDim2.new(1, 0, 0.087, 0)}):Play()
+                    task.wait(0.2)
+                    TweenService:Create(filler, T3, {Size = UDim2.new(0.011, 0, 1, 0)}):Play()
+                
+                    TweenService:Create(bar, T2, {Size = UDim2.new(1, 0, 0.05, 0)}):Play()
+                
+                    task.wait(Duration or 3)
+                
+                    TweenService:Create(filler, T1, {Size = UDim2.new(1, 0, 1, 0)}):Play()
+                    task.wait(0.25)
+                    TweenService:Create(Notification, T3, {Size = UDim2.new(0, 0, 0.087, 0)}):Play()
+                    task.wait(0.25)
+                    Notification:Destroy()
+                end)
+                if not success then
+                    warn("Notification Error: " .. tostring(err))
+                end
+            end)
+        end
+    end
+end
+
+local function Notify(mode, text, duration)
+    NotificationLibrary:SendNotification(mode, text, duration or 3)
+end
+
+---------------------------------------------------------
+-- ⚙️ GitHub 설정
 ---------------------------------------------------------
 local GITHUB_USER = "vex09924-maker"
 local GITHUB_REPO = "juun"
 local GITHUB_BRANCH = "main"
 
--- GitHub API 및 Raw 주소 설정
 local API_URL = string.format("https://api.github.com/repos/%s/%s/contents/sheets", GITHUB_USER, GITHUB_REPO)
 local RAW_BASE_URL = string.format("https://raw.githubusercontent.com/%s/%s/%s/sheets/", GITHUB_USER, GITHUB_REPO, GITHUB_BRANCH)
 
--- 기존 GUI 제거 (중복 실행 방지)
 if CoreGui:FindFirstChild("RobloxAutoPianoGUI") then
     CoreGui.RobloxAutoPianoGUI:Destroy()
 end
+if CoreGui:FindFirstChild("TalentlessDiscordPrompt") then
+    CoreGui.TalentlessDiscordPrompt:Destroy()
+end
 
--- ScreenGui 생성
+---------------------------------------------------------
+-- 📢 디스코드 안내 팝업 GUI
+---------------------------------------------------------
+local discordGui = Instance.new("ScreenGui")
+discordGui.Name = "TalentlessDiscordPrompt"
+discordGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+discordGui.Parent = CoreGui
+
+local popupFrame = Instance.new("Frame", discordGui)
+popupFrame.BorderSizePixel = 0
+popupFrame.BackgroundColor3 = Color3.fromRGB(68, 71, 75)
+popupFrame.Size = UDim2.new(0, 0, 0, 0)
+popupFrame.Position = UDim2.new(0.5, -100, 0.5, -97)
+
+local popupCorner = Instance.new("UICorner", popupFrame)
+popupCorner.CornerRadius = UDim.new(0, 4)
+
+local joinLabel = Instance.new("TextLabel", popupFrame)
+joinLabel.Name = "join"
+joinLabel.TextWrapped = true
+joinLabel.BorderSizePixel = 0
+joinLabel.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+joinLabel.TextSize = 30
+joinLabel.FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+joinLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+joinLabel.BackgroundTransparency = 1
+joinLabel.Size = UDim2.new(0, 200, 0, 61)
+joinLabel.Text = "join the discord :3"
+joinLabel.Position = UDim2.new(0.5, -100, 0, 0)
+
+local img1 = Instance.new("ImageLabel", popupFrame)
+img1.BorderSizePixel = 0
+img1.BackgroundTransparency = 1
+img1.Image = "rbxassetid://18817097052"
+img1.Size = UDim2.new(0, 73, 0, 75)
+img1.Position = UDim2.new(0.695, -36, 0.21025, 0)
+
+local img2 = Instance.new("ImageLabel", popupFrame)
+img2.BorderSizePixel = 0
+img2.BackgroundTransparency = 1
+img2.Image = "rbxassetid://18817519330"
+img2.Size = UDim2.new(0, 100, 0, 66)
+img2.Position = UDim2.new(0.29, -50, 0.25641, 0)
+
+local copyBtn = Instance.new("TextButton", popupFrame)
+copyBtn.Name = "copy"
+copyBtn.TextWrapped = true
+copyBtn.BorderSizePixel = 0
+copyBtn.TextSize = 27
+copyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+copyBtn.BackgroundColor3 = Color3.fromRGB(116, 139, 220)
+copyBtn.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+copyBtn.Size = UDim2.new(0, 152, 0, 30)
+copyBtn.Text = "copy link"
+copyBtn.Position = UDim2.new(0.5, -76, 0.6, 0)
+
+local copyCorner = Instance.new("UICorner", copyBtn)
+copyCorner.CornerRadius = UDim.new(0, 2)
+
+local closePopBtn = Instance.new("TextButton", popupFrame)
+closePopBtn.Name = "close"
+closePopBtn.BorderSizePixel = 0
+closePopBtn.TextSize = 23
+closePopBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+closePopBtn.BackgroundColor3 = Color3.fromRGB(32, 35, 38)
+closePopBtn.FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+closePopBtn.Size = UDim2.new(0, 130, 0, 26)
+closePopBtn.Text = "fuck off"
+closePopBtn.Position = UDim2.new(0.5, -65, 0.8, 0)
+
+TweenService:Create(popupFrame, TweenInfo.new(0.5, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out), {
+    Size = UDim2.new(0, 200, 0, 195)
+}):Play()
+
+copyBtn.MouseButton1Click:Connect(function()
+    local link = "https://discord.gg/x6YsDmkBsX"
+    if setclipboard then
+        setclipboard(link)
+    end
+    
+    Notify("Success", "Discord link copied!", 2)
+    
+    local requestFunc = (syn and syn.request) or (http and http.request) or request or http_request or (fluxus and fluxus.request)
+    if requestFunc then
+        pcall(function()
+            requestFunc({
+                Url = 'http://127.0.0.1:6463/rpc?v=1',
+                Method = 'POST',
+                Headers = {
+                    ['Content-Type'] = 'application/json',
+                    Origin = 'https://discord.com'
+                },
+                Body = HttpService:JSONEncode({
+                    cmd = 'INVITE_BROWSER',
+                    nonce = HttpService:GenerateGUID(false),
+                    args = {code = 'x6YsDmkBsX'}
+                })
+            })
+        end)
+    end
+end)
+
+closePopBtn.MouseButton1Click:Connect(function()
+    local fadeOutTime = 0.5
+    for _, descendant in ipairs(popupFrame:GetDescendants()) do
+        if descendant:IsA("GuiObject") then
+            local tweenInfo = {}
+            if descendant:IsA("TextLabel") or descendant:IsA("TextButton") then
+                tweenInfo.TextTransparency = 1
+            end
+            if descendant:IsA("ImageLabel") or descendant:IsA("ImageButton") then
+                tweenInfo.ImageTransparency = 1
+            end
+            tweenInfo.BackgroundTransparency = 1
+            TweenService:Create(descendant, TweenInfo.new(fadeOutTime), tweenInfo):Play()
+        end
+    end
+    local frameTween = TweenService:Create(popupFrame, TweenInfo.new(fadeOutTime), {BackgroundTransparency = 1})
+    frameTween:Play()
+    frameTween.Completed:Connect(function()
+        discordGui:Destroy()
+    end)
+end)
+
+---------------------------------------------------------
+-- 🎹 메인 오토 피아노 GUI
+---------------------------------------------------------
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "RobloxAutoPianoGUI"
 screenGui.Parent = CoreGui
 
--- 메인 프레임
 local mainFrame = Instance.new("Frame")
 mainFrame.Size = UDim2.new(0, 360, 0, 450)
 mainFrame.Position = UDim2.new(0.5, -180, 0.3, -225)
-mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
 mainFrame.BorderSizePixel = 0
 mainFrame.Active = true
 mainFrame.Draggable = true
@@ -41,8 +244,8 @@ mainCorner.Parent = mainFrame
 -- 타이틀바
 local titleBar = Instance.new("TextLabel")
 titleBar.Size = UDim2.new(1, 0, 0, 40)
-titleBar.BackgroundColor3 = Color3.fromRGB(45, 45, 60)
-titleBar.Text = "🎹 Auto Piano Player (Realtime Speed)"
+titleBar.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+titleBar.Text = "🎹 Auto Piano Player (BPM Mode)"
 titleBar.TextColor3 = Color3.fromRGB(255, 255, 255)
 titleBar.TextSize = 14
 titleBar.Font = Enum.Font.GothamBold
@@ -52,7 +255,6 @@ local titleCorner = Instance.new("UICorner")
 titleCorner.CornerRadius = UDim.new(0, 10)
 titleCorner.Parent = titleBar
 
--- 닫기 버튼
 local closeBtn = Instance.new("TextButton")
 closeBtn.Size = UDim2.new(0, 30, 0, 30)
 closeBtn.Position = UDim2.new(1, -35, 0, 5)
@@ -75,7 +277,7 @@ end)
 local sheetInput = Instance.new("TextBox")
 sheetInput.Size = UDim2.new(1, -20, 0, 80)
 sheetInput.Position = UDim2.new(0, 10, 0, 50)
-sheetInput.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
+sheetInput.BackgroundColor3 = Color3.fromRGB(18, 18, 25)
 sheetInput.TextColor3 = Color3.fromRGB(255, 255, 255)
 sheetInput.PlaceholderText = "GitHub에서 악보를 선택하거나 직접 입력하세요..."
 sheetInput.PlaceholderColor3 = Color3.fromRGB(120, 120, 140)
@@ -106,7 +308,7 @@ githubTitle.Parent = mainFrame
 local listFrame = Instance.new("ScrollingFrame")
 listFrame.Size = UDim2.new(1, -20, 0, 100)
 listFrame.Position = UDim2.new(0, 10, 0, 160)
-listFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
+listFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 25)
 listFrame.BorderSizePixel = 0
 listFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
 listFrame.Parent = mainFrame
@@ -124,7 +326,7 @@ listLayout.Parent = listFrame
 local refreshBtn = Instance.new("TextButton")
 refreshBtn.Size = UDim2.new(1, -20, 0, 25)
 refreshBtn.Position = UDim2.new(0, 10, 0, 265)
-refreshBtn.BackgroundColor3 = Color3.fromRGB(60, 120, 180)
+refreshBtn.BackgroundColor3 = Color3.fromRGB(50, 110, 170)
 refreshBtn.Text = "🔄 GitHub 목록 새로고침"
 refreshBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 refreshBtn.TextSize = 11
@@ -135,30 +337,30 @@ local refCorner = Instance.new("UICorner")
 refCorner.CornerRadius = UDim.new(0, 6)
 refCorner.Parent = refreshBtn
 
--- 속도 조절 & 휴머니라이즈
+-- 속도 조절(BPM) & 휴머니라이즈
 local speedLabel = Instance.new("TextLabel")
-speedLabel.Size = UDim2.new(0, 90, 0, 30)
+speedLabel.Size = UDim2.new(0, 80, 0, 30)
 speedLabel.Position = UDim2.new(0, 10, 0, 298)
 speedLabel.BackgroundTransparency = 1
-speedLabel.Text = "연주 속도(초):"
+speedLabel.Text = "연주 BPM:"
 speedLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
 speedLabel.TextSize = 13
 speedLabel.Font = Enum.Font.Gotham
 speedLabel.Parent = mainFrame
 
-local speedInput = Instance.new("TextBox")
-speedInput.Size = UDim2.new(0, 50, 0, 30)
-speedInput.Position = UDim2.new(0, 100, 0, 298)
-speedInput.BackgroundColor3 = Color3.fromRGB(45, 45, 60)
-speedInput.TextColor3 = Color3.fromRGB(255, 255, 255)
-speedInput.Text = "0.15" -- 기본 속도 0.15 설정
-speedInput.TextSize = 14
-speedInput.Font = Enum.Font.GothamBold
-speedInput.Parent = mainFrame
+local bpmInput = Instance.new("TextBox")
+bpmInput.Size = UDim2.new(0, 60, 0, 30)
+bpmInput.Position = UDim2.new(0, 90, 0, 298)
+bpmInput.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+bpmInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+bpmInput.Text = "100"
+bpmInput.TextSize = 14
+bpmInput.Font = Enum.Font.GothamBold
+bpmInput.Parent = mainFrame
 
-local speedCorner = Instance.new("UICorner")
-speedCorner.CornerRadius = UDim.new(0, 6)
-speedCorner.Parent = speedInput
+local bpmCorner = Instance.new("UICorner")
+bpmCorner.CornerRadius = UDim.new(0, 6)
+bpmCorner.Parent = bpmInput
 
 local humanBtn = Instance.new("TextButton")
 humanBtn.Size = UDim2.new(0, 185, 0, 30)
@@ -178,7 +380,7 @@ humanCorner.Parent = humanBtn
 local statusLabel = Instance.new("TextLabel")
 statusLabel.Size = UDim2.new(1, -20, 0, 30)
 statusLabel.Position = UDim2.new(0, 10, 0, 335)
-statusLabel.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
+statusLabel.BackgroundColor3 = Color3.fromRGB(18, 18, 25)
 statusLabel.Text = "상태: GitHub 불러오는 중..."
 statusLabel.TextColor3 = Color3.fromRGB(100, 255, 150)
 statusLabel.TextSize = 12
@@ -247,7 +449,7 @@ local function loadGithubSheets()
                         count = count + 1
                         local fileBtn = Instance.new("TextButton")
                         fileBtn.Size = UDim2.new(1, -10, 0, 26)
-                        fileBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+                        fileBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
                         fileBtn.Text = "🎵 " .. item.name:sub(1, -5)
                         fileBtn.TextColor3 = Color3.fromRGB(220, 220, 240)
                         fileBtn.TextSize = 12
@@ -272,8 +474,10 @@ local function loadGithubSheets()
                                     sheetInput.Text = sheetText
                                 end
                                 statusLabel.Text = "상태: '" .. item.name .. "' 추가 완료!"
+                                Notify("Success", "Loaded: " .. item.name:sub(1, -5), 2)
                             else
                                 statusLabel.Text = "상태: 악보 다운로드 실패!"
+                                Notify("Error", "Failed to load sheet!", 2)
                             end
                         end)
                     end
@@ -281,6 +485,7 @@ local function loadGithubSheets()
                 
                 listFrame.CanvasSize = UDim2.new(0, 0, 0, count * 30)
                 statusLabel.Text = "상태: 총 " .. count .. "개 악보 준비됨"
+                Notify("Info", "GitHub Sheets: " .. count .. " loaded", 2)
             else
                 statusLabel.Text = "상태: GitHub 데이터를 해석할 수 없음"
             end
@@ -295,7 +500,7 @@ refreshBtn.MouseButton1Click:Connect(function()
 end)
 
 ---------------------------------------------------------
--- 연주 로직 (실시간 속도 반영)
+-- 연주 로직
 ---------------------------------------------------------
 local isPlaying = false
 local isHumanized = false
@@ -305,9 +510,11 @@ humanBtn.MouseButton1Click:Connect(function()
     if isHumanized then
         humanBtn.Text = "휴머니라이즈: 켜짐 (ON)"
         humanBtn.BackgroundColor3 = Color3.fromRGB(60, 160, 100)
+        Notify("Info", "Humanizer Enabled", 1.5)
     else
         humanBtn.Text = "휴머니라이즈: 꺼짐 (OFF)"
         humanBtn.BackgroundColor3 = Color3.fromRGB(180, 100, 40)
+        Notify("Info", "Humanizer Disabled", 1.5)
     end
 end)
 
@@ -351,11 +558,9 @@ local function pressKey(char)
     if keyCode then
         if needShift then
             VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.LeftShift, false, game)
-            task.wait(0.01)
         end
         
         VirtualInputManager:SendKeyEvent(true, keyCode, false, game)
-        task.wait(0.03)
         VirtualInputManager:SendKeyEvent(false, keyCode, false, game)
         
         if needShift then
@@ -379,14 +584,11 @@ local function pressChord(chordString)
     if #keysToPress > 0 then
         if hasShift then
             VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.LeftShift, false, game)
-            task.wait(0.01)
         end
         
         for _, kc in ipairs(keysToPress) do
             VirtualInputManager:SendKeyEvent(true, kc, false, game)
         end
-        
-        task.wait(0.04)
         
         for _, kc in ipairs(keysToPress) do
             VirtualInputManager:SendKeyEvent(false, kc, false, game)
@@ -401,6 +603,7 @@ end
 local function playSheet(sheetText)
     isPlaying = true
     statusLabel.Text = "상태: 연주 중..."
+    Notify("Success", "Started Auto Play", 2)
     
     local i = 1
     local len = #sheetText
@@ -408,13 +611,14 @@ local function playSheet(sheetText)
     while i <= len and isPlaying do
         local char = sheetText:sub(i, i)
         
-        -- 연주 도중에도 실시간으로 입력창의 속도 값을 읽어옴
-        local currentSpeed = tonumber(speedInput.Text) or 0.15
-        local currentWait = currentSpeed
+        local currentBpm = tonumber(bpmInput.Text) or 100
+        if currentBpm <= 0 then currentBpm = 100 end
+        
+        local currentWait = 60 / (currentBpm * 4)
         
         if isHumanized then
-            local jitter = (math.random() - 0.5) * (currentSpeed * 0.6)
-            currentWait = math.clamp(currentSpeed + jitter, 0.03, 1.0)
+            local jitter = (math.random() - 0.5) * (currentWait * 0.5)
+            currentWait = math.clamp(currentWait + jitter, 0.01, 1.0)
         end
         
         if char == "[" then
@@ -432,7 +636,7 @@ local function playSheet(sheetText)
                 for c in fastSeq:gmatch(".") do
                     if getKeyCode(c) then
                         pressKey(c)
-                        task.wait(currentWait * 0.35)
+                        task.wait(currentWait * 0.3)
                     end
                 end
                 i = closeIdx
@@ -441,12 +645,12 @@ local function playSheet(sheetText)
         elseif char == "-" then
             if sheetText:sub(i + 1, i + 1) == "-" then
                 i = i + 1
-                task.wait(currentWait * 3.0)
+                task.wait(currentWait * 2.5)
             else
-                task.wait(currentWait * 1.5)
+                task.wait(currentWait * 1.2)
             end
         elseif char == " " then
-            task.wait(currentWait * 1.2)
+            task.wait(currentWait * 0.8)
         elseif getKeyCode(char) then
             pressKey(char)
             task.wait(currentWait)
@@ -455,8 +659,11 @@ local function playSheet(sheetText)
         i = i + 1
     end
     
-    isPlaying = false
-    statusLabel.Text = "상태: 연주 완료"
+    if isPlaying then
+        isPlaying = false
+        statusLabel.Text = "상태: 연주 완료"
+        Notify("Info", "Finished Auto Play", 2)
+    end
 end
 
 playBtn.MouseButton1Click:Connect(function()
@@ -466,6 +673,7 @@ playBtn.MouseButton1Click:Connect(function()
     
     if text == "" then
         statusLabel.Text = "상태: 악보를 선택하거나 입력하세요!"
+        Notify("Error", "No sheet loaded!", 2)
         return
     end
     
@@ -475,9 +683,11 @@ playBtn.MouseButton1Click:Connect(function()
 end)
 
 stopBtn.MouseButton1Click:Connect(function()
-    isPlaying = false
-    statusLabel.Text = "상태: 연주 중지됨"
+    if isPlaying then
+        isPlaying = false
+        statusLabel.Text = "상태: 연주 중지됨"
+        Notify("Error", "Stopped Playing", 2)
+    end
 end)
 
--- 실행 시 GitHub 목록 가져오기
 loadGithubSheets()
